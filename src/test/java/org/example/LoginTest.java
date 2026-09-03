@@ -72,6 +72,49 @@ public class LoginTest {
         testLog.pass("La alerta con el texto de credenciales inválidas apareció correctamente.");
     }
 
+    
+    @Test
+    public void validarCredencialesValidas() {
+        // Crear la prueba en el reporte
+        testLog = reporte.createTest("Validar Login Exitoso", "Prueba para verificar login correcto");
+
+        WebDriverManager.edgedriver().setup();
+        driver = new EdgeDriver();
+        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        testLog.info("Navegador iniciado con éxito.");
+
+        // Flujo de prueba
+        driver.get("http://localhost:3001");
+        // 4. Espera explícita para asegurar que el elemento cargue en el DOM
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebElement emailBox = wait.until(
+                ExpectedConditions.elementToBeClickable(By.name("email"))
+        );
+
+        WebElement passBox = wait.until(
+                ExpectedConditions.elementToBeClickable(By.name("password"))
+        );
+
+    
+        // 5. Interacción con el Frontend (Escribir y Presionar Enter)
+        emailBox.sendKeys("admin@correo.com", Keys.TAB);
+        passBox.sendKeys("123", Keys.ENTER);
+        // 6. Esperar el resultado
+
+        //Opcion si el div se renderiza
+        // Localizador XPath que busca la clase y el texto exacto
+        By alertaConTexto = By.xpath("//div[contains(@class, 'conteiner mb-5') and text()='Bienvenido al Sistema']");
+
+        // Espera hasta que el elemento sea completamente visible en la pantalla
+        WebElement mensaje = wait.until(ExpectedConditions.visibilityOfElementLocated(alertaConTexto));
+
+        // 2. ASERCIÓN DEL FRAMEWORK (Suma la validación formal al test)
+        Assert.assertTrue(mensaje.getText().equals("Bienvenido al Sistema"), "El mensaje de confirmación no mostró el texto esperado.");
+
+        // Registrar éxito en el reporte si la aserción pasa
+        testLog.pass("El mensaje de confirmacion de login con credenciales válidas apareció correctamente.");
+    }
+
     @AfterClass
     public void finalizarSujeto() {
         if (driver != null) {
