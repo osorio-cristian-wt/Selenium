@@ -12,8 +12,9 @@ name: selenium-e2e
 
 services:
   browser:
-    # selenium/standalone-chromium es multi-arquitectura (Intel/AMD y ARM, ej. Mac M1/M2)
-    image: ${SELENIUM_IMAGE:-selenium/standalone-chromium:latest}
+    # selenium/standalone-chromium es multi-arquitectura (Intel/AMD y ARM, ej. Mac M1/M2).
+    # Versión fija (Grid 4.49 + Chromium 152) para que el entorno sea reproducible; probada con el cliente 4.48.
+    image: ${SELENIUM_IMAGE:-selenium/standalone-chromium:4.49.0-20260909}
     shm_size: 2gb
     ports:
       - "4444:4444"   # WebDriver / consola del Grid

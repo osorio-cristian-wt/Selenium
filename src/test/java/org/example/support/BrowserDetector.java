@@ -95,6 +95,8 @@ public final class BrowserDetector {
                 case "chrome" -> {
                     rutas.add("/opt/google/chrome/chrome");
                     rutas.add("/snap/bin/chromium");
+                    // Chromium de Playwright (contenedores de CI / entornos cloud)
+                    rutas.add("/opt/pw-browsers/chromium");
                 }
                 case "edge" -> rutas.add("/opt/microsoft/msedge/msedge");
                 case "firefox" -> rutas.add("/snap/bin/firefox");
