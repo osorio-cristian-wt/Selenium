@@ -1,0 +1,68 @@
+# Tests E2E con Selenium en Docker
+#
+#   docker compose up -d browser            -> navegador remoto (Selenium standalone)
+#                                              ver el navegador en vivo: http://localhost:7900 (noVNC, sin contraseña)
+#   docker compose run --rm e2e             -> compila y corre los tests contra BASE_URL
+#   docker compose down                     -> baja todo
+#
+# BASE_URL la resuelve el NAVEGADOR (contenedor "browser"), no tu máquina:
+#   - front corriendo en tu máquina/Codespace en el puerto 3001 -> http://host.docker.internal:3001 (default)
+#   - front corriendo como servicio de este compose            -> http://frontend:3001
+name: selenium-e2e
+
+services:
+  browser:
+    # selenium/standalone-chromium es multi-arquitectura (Intel/AMD y ARM, ej. Mac M1/M2)
+    image: ${SELENIUM_IMAGE:-selenium/standalone-chromium:latest}
+    shm_size: 2gb
+    ports:
+      - "4444:4444"   # WebDriver / consola del Grid
+      - "7900:7900"   # noVNC: ver el navegador ejecutando los tests
+    environment:
+      SE_VNC_NO_PASSWORD: "true"
+      SE_NODE_MAX_SESSIONS: "2"
+      SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:4444/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  e2e:
+    image: maven:3.9-eclipse-temurin-21
+    working_dir: /app
+    volumes:
+      - .:/app
+      - m2-cache:/root/.m2
+    environment:
+      SELENIUM_REMOTE_URL: http://browser:4444
+      BROWSER: chrome
+      BASE_URL: ${BASE_URL:-http://host.docker.internal:3001}
+      TIMEOUT_SECONDS: ${TIMEOUT_SECONDS:-15}
+    depends_on:
+      browser:
+        condition: service_healthy
+    command: ["mvn", "-B", "test"]
+    profiles: ["tests"]
+
+  # Backend construido directo desde GitHub (no hace falta clonarlo).
+  #   docker compose --profile stack up -d backend   -> API en http://localhost:8080
+  backend:
+    build:
+      context: ${BACKEND_CONTEXT:-https://github.com/osorio-cristian-wt/BACK-JOBS-API.git#main}
+      target: runtime
+    ports:
+      - "8080:8080"
+    profiles: ["stack"]
+
+  # Frontend: se completa cuando tengamos el repo del front (debe exponer el 3001).
+  # frontend:
+  #   build: ${FRONTEND_CONTEXT:-../FRONT}
+  #   ports:
+  #     - "3001:3001"
+  #   profiles: ["stack"]
+
+volumes:
+  m2-cache:
