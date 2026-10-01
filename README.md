@@ -17,25 +17,41 @@ Prueba el **flujo de login** del front [`front-crud`](https://github.com/elprofe
 9. Navegación Login → Registro → Login
 10. Reintento exitoso luego de un error (la alerta desaparece)
 
-## Configuración
+## Configuración — una sola línea para cambiar el navegador
 
-Los tests leen la configuración de variables de entorno (o `-Dpropiedad=` en Maven):
+Todos los tests piden el navegador a `DriverFactory` (único punto de creación del WebDriver),
+que lee **`src/test/resources/test.properties`**:
 
-| Variable | Propiedad | Default | Uso |
+```properties
+browser=auto        # auto | chrome | edge | firefox
+```
+
+- `auto` (default): usa el primero instalado en la PC — **Chrome → Edge → Firefox** (Windows, macOS y Linux).
+  En Windows siempre hay Edge, así que nunca se queda sin navegador.
+- No hace falta instalar drivers: **Selenium Manager** (incluido en Selenium 4) descarga el
+  chromedriver / msedgedriver / geckodriver que corresponde a la versión instalada.
+  Si no hay ningún navegador, descarga Chrome for Testing.
+- Con Docker no hace falta ningún navegador en la PC: corre Chromium dentro del contenedor.
+
+Cada valor se puede pisar sin tocar el archivo (orden: `-D` → variable de entorno → archivo):
+
+| Archivo / `-D` | Variable de entorno | Default | Uso |
 |---|---|---|---|
-| `BASE_URL` | `base.url` | `http://localhost:3001` | URL del frontend |
-| `BROWSER` | `browser` | `chrome` | `chrome`, `edge`, `firefox` |
-| `HEADLESS` | `headless` | `false` | sin ventana |
-| `SELENIUM_REMOTE_URL` | `selenium.remote.url` | *(vacío = local)* | Selenium Grid/Docker |
-| `TIMEOUT_SECONDS` | `timeout.seconds` | `10` | esperas explícitas |
+| `browser` | `BROWSER` | `auto` | `auto`, `chrome`, `edge`, `firefox` |
+| `headless` | `HEADLESS` | `false` | sin ventana |
+| `base.url` | `BASE_URL` | `http://localhost:3001` | URL del frontend |
+| `timeout.seconds` | `TIMEOUT_SECONDS` | `10` | esperas explícitas |
+| `selenium.remote.url` | `SELENIUM_REMOTE_URL` | *(vacío = local)* | Selenium Grid/Docker |
+
+El reporte HTML indica qué navegador y versión se usó realmente en cada test.
 
 ## Correr en tu PC (sin Docker)
 
 Con el front levantado en `http://localhost:3001` (`npm install --legacy-peer-deps && npm start` en front-crud):
 
 ```bash
-mvn test                                  # Chrome local con ventana
-mvn test -Dbrowser=edge                   # Edge
+mvn test                                  # navegador según test.properties (auto)
+mvn test -Dbrowser=edge                   # forzar Edge solo esta vez
 mvn test -Dheadless=true                  # sin ventana
 ```
 

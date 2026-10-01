@@ -4,6 +4,8 @@ import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.MediaEntityBuilder;
 import com.aventstack.extentreports.reporter.ExtentSparkReporter;
+import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.HasCapabilities;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
@@ -35,7 +37,7 @@ public abstract class BaseTest {
         spark.config().setReportName("Flujo de login");
         reporte = new ExtentReports();
         reporte.attachReporter(spark);
-        reporte.setSystemInfo("Navegador", TestConfig.browser());
+        reporte.setSystemInfo("Navegador configurado", TestConfig.browser());
         reporte.setSystemInfo("URL", TestConfig.baseUrl());
         reporte.setSystemInfo("Modo", TestConfig.remoteUrl().isEmpty() ? "local" : "remoto (" + TestConfig.remoteUrl() + ")");
     }
@@ -46,7 +48,16 @@ public abstract class BaseTest {
         String descripcion = (test != null && !test.description().isBlank()) ? test.description() : metodo.getName();
         testLog = reporte.createTest(descripcion, metodo.getName());
         driver = DriverFactory.create();
-        testLog.info("Navegador iniciado: " + TestConfig.browser());
+        testLog.info("Navegador iniciado: " + navegadorReal());
+    }
+
+    /** Navegador y versión que realmente se abrió (útil con browser=auto). */
+    private String navegadorReal() {
+        if (driver instanceof HasCapabilities hc) {
+            Capabilities caps = hc.getCapabilities();
+            return caps.getBrowserName() + " " + caps.getBrowserVersion();
+        }
+        return TestConfig.browser();
     }
 
     protected void paso(String descripcion) {

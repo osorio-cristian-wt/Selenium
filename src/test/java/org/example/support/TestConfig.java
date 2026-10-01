@@ -1,13 +1,21 @@
 package org.example.support;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.time.Duration;
+import java.util.Properties;
 
 /**
- * Configuración de los tests E2E.
- * Cada valor se lee primero como propiedad de sistema (-Dbase.url=...)
- * y si no existe, como variable de entorno (BASE_URL=...).
+ * Configuración de los tests E2E. Cada valor se busca en este orden:
+ *   1. propiedad de sistema     mvn test -Dbrowser=edge
+ *   2. variable de entorno      BROWSER=edge
+ *   3. archivo                  src/test/resources/test.properties
+ *   4. valor por defecto
  */
 public final class TestConfig {
+
+    private static final Properties ARCHIVO = cargarArchivo();
 
     private TestConfig() {
     }
@@ -17,9 +25,9 @@ public final class TestConfig {
         return get("base.url", "BASE_URL", "http://localhost:3001");
     }
 
-    /** Navegador: chrome | edge | firefox. */
+    /** Navegador configurado: auto | chrome | edge | firefox. */
     public static String browser() {
-        return get("browser", "BROWSER", "chrome").toLowerCase();
+        return get("browser", "BROWSER", "auto").toLowerCase();
     }
 
     /** true para correr sin ventana (obligatorio en servidores sin pantalla). */
@@ -27,7 +35,7 @@ public final class TestConfig {
         return Boolean.parseBoolean(get("headless", "HEADLESS", "false"));
     }
 
-    /** URL de un Selenium Grid / standalone (ej: http://localhost:4444). Vacío = driver local. */
+    /** URL de un Selenium Grid / standalone (ej: http://localhost:4444). Vacío = navegador local. */
     public static String remoteUrl() {
         return get("selenium.remote.url", "SELENIUM_REMOTE_URL", "");
     }
@@ -39,9 +47,28 @@ public final class TestConfig {
 
     private static String get(String property, String env, String defaultValue) {
         String value = System.getProperty(property);
-        if (value == null || value.isBlank()) {
+        if (isBlank(value)) {
             value = System.getenv(env);
         }
-        return (value == null || value.isBlank()) ? defaultValue : value.trim();
+        if (isBlank(value)) {
+            value = ARCHIVO.getProperty(property);
+        }
+        return isBlank(value) ? defaultValue : value.trim();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private static Properties cargarArchivo() {
+        Properties props = new Properties();
+        try (InputStream in = TestConfig.class.getResourceAsStream("/test.properties")) {
+            if (in != null) {
+                props.load(in);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo leer test.properties", e);
+        }
+        return props;
     }
 }
