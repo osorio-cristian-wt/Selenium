@@ -1,0 +1,91 @@
+# Tests E2E con Selenium en Docker
+#
+#   docker compose run --rm e2e             -> levanta front + navegador y corre los tests
+#   docker compose up -d frontend browser   -> solo levanta el front (http://localhost:3001) y el navegador
+#                                              ver el navegador en vivo: http://localhost:7900 (noVNC, sin contraseña)
+#   docker compose down                     -> baja todo
+#
+# BASE_URL la resuelve el NAVEGADOR (contenedor "browser"), no tu máquina:
+#   - front de este compose (default)                       -> http://frontend:3001
+#   - front corriendo en tu máquina en el puerto 3001        -> BASE_URL=http://host.docker.internal:3001
+name: selenium-e2e
+
+services:
+  browser:
+    # selenium/standalone-chromium es multi-arquitectura (Intel/AMD y ARM, ej. Mac M1/M2).
+    # Versión fija (Grid 4.49 + Chromium 152) para que el entorno sea reproducible; probada con el cliente 4.48.
+    image: ${SELENIUM_IMAGE:-selenium/standalone-chromium:4.49.0-20260909}
+    shm_size: 2gb
+    ports:
+      - "4444:4444"   # WebDriver / consola del Grid
+      - "7900:7900"   # noVNC: ver el navegador ejecutando los tests
+    environment:
+      SE_VNC_NO_PASSWORD: "true"
+      SE_NODE_MAX_SESSIONS: "2"
+      SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:4444/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  e2e:
+    image: maven:3.9-eclipse-temurin-21
+    working_dir: /app
+    volumes:
+      - .:/app
+      - m2-cache:/root/.m2
+    environment:
+      SELENIUM_REMOTE_URL: http://browser:4444
+      BROWSER: chrome
+      BASE_URL: ${BASE_URL:-http://frontend:3001}
+      TIMEOUT_SECONDS: ${TIMEOUT_SECONDS:-15}
+    depends_on:
+      browser:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    command: ["mvn", "-B", "test"]
+    profiles: ["tests"]
+
+  # Backend construido directo desde GitHub (no hace falta clonarlo).
+  #   docker compose --profile stack up -d backend   -> API en http://localhost:8080
+  backend:
+    build:
+      context: ${BACKEND_CONTEXT:-https://github.com/osorio-cristian-wt/BACK-JOBS-API.git#main}
+      target: runtime
+    ports:
+      - "8080:8080"
+    profiles: ["stack"]
+
+  # Frontend (front-crud, React) construido directo desde GitHub en modo mock (REACT_APP_USE_MOCK=true del .env).
+  # Para usar una copia local: FRONTEND_CONTEXT=../front-crud docker compose ...
+  frontend:
+    build:
+      context: ${FRONTEND_CONTEXT:-https://github.com/elprofevancho-uap/front-crud.git#main}
+      dockerfile_inline: |
+        FROM node:22-alpine AS build
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm install --legacy-peer-deps --no-audit --no-fund
+        COPY . .
+        RUN CI=false npm run build
+
+        FROM node:22-alpine
+        RUN npm install -g serve@14
+        COPY --from=build /app/build /app
+        EXPOSE 3001
+        CMD ["serve", "-s", "/app", "-l", "tcp://0.0.0.0:3001"]
+    image: front-crud:local
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3001"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  m2-cache:

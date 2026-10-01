@@ -1,0 +1,29 @@
+{
+  "name": "Selenium E2E (Java 21 + Maven + Docker)",
+  "image": "mcr.microsoft.com/devcontainers/java:1-21-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "none",
+      "installMaven": "true",
+      "mavenVersion": "3.9"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+  "forwardPorts": [7900, 4444, 3001],
+  "portsAttributes": {
+    "7900": { "label": "Navegador en vivo (noVNC)", "onAutoForward": "openBrowser" },
+    "4444": { "label": "Selenium Grid", "onAutoForward": "silent" },
+    "3001": { "label": "Frontend", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "mvn -B -q dependency:go-offline || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "hostRequirements": { "cpus": 2, "memory": "4gb" }
+}
