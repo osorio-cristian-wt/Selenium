@@ -56,6 +56,7 @@ public final class DriverFactory {
             case "firefox" -> {
                 FirefoxOptions o = new FirefoxOptions();
                 if (headless) o.addArguments("-headless");
+                o.addArguments("--width=1366", "--height=768");
                 yield o;
             }
             default -> {

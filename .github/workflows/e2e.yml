@@ -1,25 +1,18 @@
 name: Tests E2E (Selenium)
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
-    inputs:
-      base_url:
-        description: "URL del frontend a probar (vista desde el contenedor del navegador)"
-        required: false
-        default: "http://host.docker.internal:3001"
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    env:
-      BASE_URL: ${{ inputs.base_url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Levantar navegador remoto
-        run: docker compose up -d --wait browser
-
-      - name: Correr tests E2E
+      - name: Levantar front + navegador y correr los tests E2E
         run: docker compose run --rm e2e
 
       - name: Publicar reporte HTML (ExtentReports) y surefire
@@ -31,6 +24,10 @@ jobs:
             reportes/
             target/surefire-reports/
           if-no-files-found: warn
+
+      - name: Logs del front si falló
+        if: failure()
+        run: docker compose logs frontend
 
       - name: Bajar contenedores
         if: always()

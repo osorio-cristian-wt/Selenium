@@ -1,13 +1,13 @@
 # Tests E2E con Selenium en Docker
 #
-#   docker compose up -d browser            -> navegador remoto (Selenium standalone)
+#   docker compose run --rm e2e             -> levanta front + navegador y corre los tests
+#   docker compose up -d frontend browser   -> solo levanta el front (http://localhost:3001) y el navegador
 #                                              ver el navegador en vivo: http://localhost:7900 (noVNC, sin contraseña)
-#   docker compose run --rm e2e             -> compila y corre los tests contra BASE_URL
 #   docker compose down                     -> baja todo
 #
 # BASE_URL la resuelve el NAVEGADOR (contenedor "browser"), no tu máquina:
-#   - front corriendo en tu máquina/Codespace en el puerto 3001 -> http://host.docker.internal:3001 (default)
-#   - front corriendo como servicio de este compose            -> http://frontend:3001
+#   - front de este compose (default)                       -> http://frontend:3001
+#   - front corriendo en tu máquina en el puerto 3001        -> BASE_URL=http://host.docker.internal:3001
 name: selenium-e2e
 
 services:
@@ -39,10 +39,12 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://browser:4444
       BROWSER: chrome
-      BASE_URL: ${BASE_URL:-http://host.docker.internal:3001}
+      BASE_URL: ${BASE_URL:-http://frontend:3001}
       TIMEOUT_SECONDS: ${TIMEOUT_SECONDS:-15}
     depends_on:
       browser:
+        condition: service_healthy
+      frontend:
         condition: service_healthy
     command: ["mvn", "-B", "test"]
     profiles: ["tests"]
@@ -57,12 +59,32 @@ services:
       - "8080:8080"
     profiles: ["stack"]
 
-  # Frontend: se completa cuando tengamos el repo del front (debe exponer el 3001).
-  # frontend:
-  #   build: ${FRONTEND_CONTEXT:-../FRONT}
-  #   ports:
-  #     - "3001:3001"
-  #   profiles: ["stack"]
+  # Frontend (front-crud, React) construido directo desde GitHub en modo mock (REACT_APP_USE_MOCK=true del .env).
+  # Para usar una copia local: FRONTEND_CONTEXT=../front-crud docker compose ...
+  frontend:
+    build:
+      context: ${FRONTEND_CONTEXT:-https://github.com/elprofevancho-uap/front-crud.git#main}
+      dockerfile_inline: |
+        FROM node:22-alpine AS build
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm install --legacy-peer-deps --no-audit --no-fund
+        COPY . .
+        RUN CI=false npm run build
+
+        FROM node:22-alpine
+        RUN npm install -g serve@14
+        COPY --from=build /app/build /app
+        EXPOSE 3001
+        CMD ["serve", "-s", "/app", "-l", "tcp://0.0.0.0:3001"]
+    image: front-crud:local
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3001"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
   m2-cache:
